@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>داشبورد پایش و کنترل پروژه دماوند</title>
+    <!-- بارگذاری فونت وزیرمتن (Vazirmatn) از Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <!-- بارگذاری Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- بارگذاری Chart.js برای رسم نمودارهای تعاملی -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Vazirmatn', 'sans-serif'],
+                    },
+                    colors: {
+                        navy: {
+                            800: '#1e293b',
+                            900: '#0f172a',
+                            950: '#080d1a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Vazirmatn', sans-serif;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        /* استایل سفارشی اسلایدرها برای ظاهر مدیریتی و زیبا */
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            height: 8px;
+            border-radius: 9999px;
+            outline: none;
+            cursor: pointer;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #ffffff;
+            border: 3px solid #1e3a8a;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+            cursor: pointer;
+            transition: transform 0.15s ease;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.15);
+        }
+
+        /* مخفی‌سازی فلش‌های پیش‌فرض اینپوت عددی */
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type="number"] {
+            -moz-appearance: textfield;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 dark:bg-navy-950 dark:text-slate-100 min-h-screen antialiased selection:bg-blue-600 selection:text-white">
+
+    <!-- نوار اعلان (Toast Notification) به جای alert -->
+    <div id="toast-container" class="fixed bottom-5 left-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- هدر سازمانی (Header) -->
+    <header class="bg-gradient-to-l from-slate-900 via-blue-950 to-slate-900 text-white shadow-xl border-b border-blue-800/40 sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5">
+            <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                <!-- عنوان و نشان پروژه -->
+                <div class="flex items-start sm:items-center gap-3.5">
+                    <div class="p-3 bg-blue-600/20 border border-blue-400/30 rounded-2xl text-blue-300 shrink-0 shadow-inner">
+                        <!-- آیکون گرافیکی پروژه صنعتی/عمرانی -->
+                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <h1 class="text-xl sm:text-2xl font-extrabold tracking-tight text-white">
+                                داشبورد پایش و کنترل پروژه دماوند
+                            </h1>
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                                فعال و در حال اجرا
+                            </span>
+                        </div>
+                        <p class="text-slate-300 text-xs sm:text-sm mt-1">
+                            گزارش جامع وضعیت پیشرفت فیزیکی بخش‌های اجرایی، تحلیل انحراف و شبیه‌سازی اوزان پروژه
+                        </p>
+                    </div>
+                </div>
+
+                <!-- ابزارهای کنترلی هدر: تاریخ گزارش، تغییر تم، و پرش سریع به بخش ویرایش -->
+                <div class="flex flex-wrap items-center gap-2.5 sm:gap-3">
+                    <!-- فیلد تاریخ گزارش قابل ویرایش -->
+                    <div class="flex items-center gap-2 bg-slate-800/80 border border-slate-700 rounded-xl px-3 py-2 text-xs sm:text-sm">
+                        <svg class="w-4 h-4 text-blue-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                        </svg>
+                        <label for="report-date" class="text-slate-400 whitespace-nowrap">تاریخ گزارش:</label>
+                        <input id="report-date" type="text" value="۱۴۰۳/۰۹/۰۲" aria-label="تاریخ گزارش"
+                               class="bg-transparent text-white font-semibold w-24 text-center focus:outline-none focus:ring-1 focus:ring-blue-400 rounded px-1">
+                    </div>
+
+                    <!-- دکمه تغییر تم روشن/تیره -->
+                    <button id="theme-toggle" type="button" title="تغییر حالت نمایش روشن و تیره"
+                            class="p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 border border-slate-700 text-slate-200 transition flex items-center gap-1.5 text-xs sm:text-sm font-medium">
+                        <svg id="sun-icon" class="w-4 h-4 hidden text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                        </svg>
+                        <svg id="moon-icon" class="w-4 h-4 text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>
+                        </svg>
+                        <span id="theme-label" class="hidden sm:inline">حالت تیره</span>
+                    </button>
+
+                    <!-- دکمه اسکرول به بخش بروزرسانی مقادیر -->
+                    <a href="#simulator-section"
+                       class="px-3.5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs sm:text-sm shadow-lg shadow-blue-900/40 transition flex items-center gap-1.5">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                        </svg>
+                        بروزرسانی مقادیر
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- بدنه اصلی داشبورد -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6 sm:space-y-8">
+
+        <!-- بخش اول: کارت شاخص کلیدی پیشرفت کل پروژه + کارت‌های ۴ بخش اجرایی -->
+        <section aria-label="شاخص‌های کلیدی عملکرد">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+                
+                <!-- کارت بزرگ پیشرفت کل پروژه دماوند (۴ ستون در دسکتاپ) -->
+                <div class="lg:col-span-4 bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 text-white rounded-3xl p-6 shadow-xl border border-blue-800/40 flex flex-col justify-between relative overflow-hidden">
+                    <!-- دایره‌های تزئینی پس‌زمینه -->
+                    <div class="absolute -left-10 -top-10 w-40 h-40 bg-blue-500/10 rounded-full blur-2xl pointer-events-none"></div>
+                    <div class="absolute -right-10 -bottom-10 w-40 h-40 bg-cyan-500/10 rounded-full blur-2xl pointer-events-none"></div>
+
+                    <div class="relative z-10">
+                        <div class="flex items-center justify-between gap-2">
+                            <span class="text-sm font-semibold text-blue-200">پیشرفت فیزیکی کل پروژه</span>
+                            <span id="calc-mode-badge" class="px-2.5 py-1 rounded-lg bg-blue-500/20 border border-blue-400/30 text-blue-200 text-xs font-medium">
+                                میانگین ساده (اوزان برابر)
+                            </span>
+                        </div>
+
+                        <div class="mt-5 flex items-baseline gap-2">
+                            <span id="total-progress-value" class="text-5xl sm:text-6xl font-black tracking-tight text-white">۴۱.۲۵٪</span>
+                        </div>
+                        <p id="total-progress-subtitle" class="text-xs sm:text-sm text-slate-300 mt-2">
+                            معادل ۵۸.۷۵٪ کار باقیمانده تا تکمیل نهایی فاز اجرایی
+                        </p>
+                    </div>
+
+                    <div class="relative z-10 mt-6 space-y-3">
+                        <!-- نوار پیشرفت کلی -->
+                        <div class="w-full bg-slate-800/90 rounded-full h-3.5 p-0.5 border border-slate-700/80 overflow-hidden">
+                            <div id="total-progress-bar" class="bg-gradient-to-l from-cyan-400 to-blue-500 h-full rounded-full transition-all duration-500" style="width: 41.25%"></div>
+                        </div>
+
+                        <!-- خلاصه آماری پایین کارت کل -->
+                        <div class="grid grid-cols-2 gap-3 pt-2 border-t border-slate-800/80 text-xs">
+                            <div class="bg-slate-800/50 rounded-xl p-2.5">
+                                <span class="text-slate-400 block">پیشتازترین بخش</span>
+                                <span id="top-sector-name" class="font-bold text-emerald-300 mt-0.5 block">آب و آبگیر (۵۰٪)</span>
+                            </div>
+                            <div class="bg-slate-800/50 rounded-xl p-2.5">
+                                <span class="text-slate-400 block">نیازمند توجه ویژه</span>
+                                <span id="lowest-sector-name" class="font-bold text-amber-300 mt-0.5 block">هوای ۱ (۳۰٪)</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- شبکه کارت‌های ۴ بخش اصلی پروژه (۸ ستون در دسکتاپ) -->
+                <div id="kpi-cards-grid" class="lg:col-span-8 grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
+                    <!-- کارت‌ها به صورت پویا توسط جاوااسکریپت رندر و آپدیت می‌شوند -->
+                </div>
+
+            </div>
+        </section>
+
+        <!-- بخش دوم: نمودارهای تحلیلی و مقایسه‌ای -->
+        <section aria-label="نمودارهای تحلیلی پیشرفت">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6">
+                
+                <!-- نمودار میله‌ای مقایسه‌ای بخش‌های چهارگانه (۷ ستون) -->
+                <div class="lg:col-span-7 bg-white dark:bg-navy-900 rounded-3xl p-5 sm:p-6 shadow-md border border-slate-200/80 dark:border-slate-800 flex flex-col">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+                        <div>
+                            <h2 class="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
+                                مقایسه درصد پیشرفت بخش‌های اجرایی
+                            </h2>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                                مقایسه عملکرد فیزیکی هر بخش نسبت به سقف ۱۰۰٪ و خط میانگین پروژه
+                            </p>
+                        </div>
+                        <span class="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 self-start">
+                            <span class="w-2 h-2 rounded-full bg-blue-600"></span>
+                            واحد: درصد (٪)
+                        </span>
+                    </div>
+                    <div class="relative flex-1 min-h-[270px] sm:min-h-[300px] w-full">
+                        <canvas id="barChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- نمودار دونات پیشرفت کلی در مقابل باقیمانده کار (۵ ستون) -->
+                <div class="lg:col-span-5 bg-white dark:bg-navy-900 rounded-3xl p-5 sm:p-6 shadow-md border border-slate-200/80 dark:border-slate-800 flex flex-col">
+                    <div class="mb-4">
+                        <h2 class="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
+                            وضعیت پیشرفت کل در برابر باقیمانده کار
+                        </h2>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                            نسبت حجم کار انجام‌شده به کل تعهدات پروژه دماوند
+                        </p>
+                    </div>
+                    <div class="relative flex-1 min-h-[240px] sm:min-h-[260px] w-full flex items-center justify-center">
+                        <canvas id="doughnutChart"></canvas>
+                        <!-- نمایش عدد مرکزی داخل نمودار دونات -->
+                        <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pb-6">
+                            <span class="text-xs text-slate-400 dark:text-slate-400 font-medium">پیشرفت کل</span>
+                            <span id="doughnut-center-text" class="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white mt-0.5">۴۱.۲۵٪</span>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3 mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 text-xs">
+                        <div class="flex items-center justify-between bg-blue-50/70 dark:bg-blue-950/40 px-3 py-2 rounded-xl">
+                            <span class="flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
+                                <span class="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
+                                انجام‌شده
+                            </span>
+                            <span id="legend-completed" class="font-bold text-blue-700 dark:text-blue-300">۴۱.۲۵٪</span>
+                        </div>
+                        <div class="flex items-center justify-between bg-slate-100 dark:bg-slate-800/70 px-3 py-2 rounded-xl">
+                            <span class="flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
+                                <span class="w-2.5 h-2.5 rounded-full bg-slate-300 dark:bg-slate-600"></span>
+                                باقیمانده
+                            </span>
+                            <span id="legend-remaining" class="font-bold text-slate-700 dark:text-slate-300">۵۸.۷۵٪</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- بخش سوم: شبیه‌ساز زنده و پنل تنظیم درصد پیشرفت و ضرایب وزنی -->
+        <section id="simulator-section" aria-label="شبیه‌ساز و بروزرسانی زنده" class="bg-white dark:bg-navy-900 rounded-3xl p-5 sm:p-7 shadow-md border border-slate-200/80 dark:border-slate-800 scroll-mt-24">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-slate-100 dark:border-slate-800">
+                <div>
+                    <div class="flex items-center gap-2">
+                        <span class="p-2 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path>
+                            </svg>
+                        </span>
+                        <h2 class="text-lg sm:text-xl font-extrabold text-slate-900 dark:text-white">
+                            پنل بروزرسانی زنده و شبیه‌ساز اوزان پروژه
+                        </h2>
+                    </div>
+                    <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1.5">
+                        با تغییر اسلایدر درصد پیشرفت یا ضریب وزنی (WF) هر بخش، شاخص کل پروژه و تمامی نمودارها به‌صورت آنی محاسبه می‌شوند.
+                    </p>
+                </div>
+
+                <!-- دکمه‌های عملیاتی پنل کنترل -->
+                <div class="flex flex-wrap items-center gap-2.5 shrink-0">
+                    <button id="equal-weights-btn" type="button"
+                            class="px-3.5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs sm:text-sm font-semibold transition flex items-center gap-1.5">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"></path>
+                        </svg>
+                        یکسان‌سازی اوزان (۲۵٪)
+                    </button>
+
+                    <button id="reset-btn" type="button"
+                            class="px-4 py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/50 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/60 text-xs sm:text-sm font-bold transition flex items-center gap-1.5">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                        </svg>
+                        بازنشانی به مقادیر اولیه
+                    </button>
+                </div>
+            </div>
+
+            <!-- شبکه کنترل‌گرهای ۴ بخش -->
+            <div id="controls-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5 mt-6">
+                <!-- کنترل‌گرها به صورت پویا ساخته می‌شوند -->
+            </div>
+
+            <!-- نوار وضعیت جمع اوزان -->
+            <div class="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400">
+                <div class="flex items-center gap-2">
+                    <svg class="w-4 h-4 text-blue-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <span>نحوه محاسبه: مجموع حاصل‌ضرب درصد پیشرفت هر بخش در ضریب وزنی آن تقسیم بر مجموع اوزان.</span>
+                </div>
+                <div class="font-semibold text-slate-700 dark:text-slate-300">
+                    مجموع ضرایب وزنی فعلی: <span id="total-weight-display" class="text-blue-600 dark:text-blue-400 font-bold">۱۰۰</span> واحد
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- فوتر مختصر و حرفه‌ای -->
+    <footer class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 text-center text-xs text-slate-500 dark:text-slate-400 border-t border-slate-200/70 dark:border-slate-800/70 mt-8">
+        سامانه هوشمند پایش و کنترل پروژه دماوند • به‌روزرسانی لحظه‌ای شاخص‌های پیشرفت فیزیکی
+    </footer>
+
+    <script>
+        // داده‌های اولیه و پایه پروژه دماوند طبق مشخصات اعلام‌شده
+        const INITIAL_SECTORS = [
+            {
+                id: 'water',
+                name: 'آب و آبگیر',
+                subtitle: 'تأسیسات آبگیر، خطوط انتقال و تصفیه‌خانه',
+                progress: 50,
+                weight: 25,
+                color: '#0284c7', // آبی اقیانوسی (Sky 600)
+                badgeBg: 'bg-sky-50 dark:bg-sky-950/50',
+                badgeText: 'text-sky-700 dark:text-sky-300',
+                barClass: 'bg-sky-600',
+                icon: `<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 21a7 7 0 007-7c0-3.866-7-11-7-11S5 10.134 5 14a7 7 0 007 7z"></path>
+                       </svg>`
+            },
+            {
+                id: 'offsite',
+                name: 'آفسایت',
+                subtitle: 'زیرساخت‌های جانبی، مخازن و خطوط ارتباطی',
+                progress: 45,
+                weight: 25,
+                color: '#0d9488', // سبز آبی (Teal 600)
+                badgeBg: 'bg-teal-50 dark:bg-teal-950/50',
+                badgeText: 'text-teal-700 dark:text-teal-300',
+                barClass: 'bg-teal-600',
+                icon: `<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                       </svg>`
+            },
+            {
+                id: 'air1',
+                name: 'هوای ۱',
+                subtitle: 'واحد تفکیک و تأمین هوای صنعتی فاز یک',
+                progress: 30,
+                weight: 25,
+                color: '#d97706', // کهربایی (Amber 600)
+                badgeBg: 'bg-amber-50 dark:bg-amber-950/50',
+                badgeText: 'text-amber-700 dark:text-amber-300',
+                barClass: 'bg-amber-500',
+                icon: `<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5a3 3 0 110 6H3m15 2a3 3 0 110 6H3m9-10a3 3 0 110 6H3"></path>
+                       </svg>`
+            },
+            {
+                id: 'air2',
+                name: 'هوای ۲',
+                subtitle: 'واحد تفکیک و تأمین هوای صنعتی فاز دو',
+                progress: 40,
+                weight: 25,
+                color: '#4f46e5', // نیلی (Indigo 600)
+                badgeBg: 'bg-indigo-50 dark:bg-indigo-950/50',
+                badgeText: 'text-indigo-700 dark:text-indigo-300',
+                barClass: 'bg-indigo-600',
+                icon: `<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"></path>
+                       </svg>`
+            }
+        ];
+
+        // وضعیت جاری برنامه
+        let sectors = JSON.parse(JSON.stringify(INITIAL_SECTORS));
+        let barChartInstance = null;
+        let doughnutChartInstance = null;
+
+        // تبدیل اعداد انگلیسی به فارسی برای نمایش یکدست و زیبا
+        function toPersianDigits(num) {
+            const persianDigits = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+            return num.toString().replace(/\d/g, d => persianDigits[d]);
+        }
+
+        // قالب‌بندی درصد با حذف صفرهای اضافی اعشار
+        function formatPercent(val) {
+            const rounded = Math.round(val * 100) / 100;
+            return toPersianDigits(rounded) + '٪';
+        }
+
+        // تعیین برچسب وضعیت بر اساس درصد پیشرفت هر بخش
+        function getStatusInfo(progress) {
+            if (progress >= 80) {
+                return {
+                    label: 'پیشرفت عالی / مراحل پایانی',
+                    classes: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/60'
+                };
+            } else if (progress >= 45) {
+                return {
+                    label: 'در حال اجرا (مطابق برنامه)',
+                    classes: 'bg-blue-100 text-blue-800 dark:bg-blue-950/70 dark:text-blue-300 border-blue-200 dark:border-blue-800/60'
+                };
+            } else if (progress >= 35) {
+                return {
+                    label: 'در حال اجرا (نیازمند پیگیری)',
+                    classes: 'bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300 border-amber-200 dark:border-amber-800/60'
+                };
+            } else {
+                return {
+                    label: 'نیازمند تسریع اجرایی',
+                    classes: 'bg-rose-100 text-rose-800 dark:bg-rose-950/70 dark:text-rose-300 border-rose-200 dark:border-rose-800/60'
+                };
+            }
+        }
+
+        // نمایش پیام کوتاه (Toast) بدون استفاده از alert
+        function showToast(message) {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = 'bg-slate-900 dark:bg-blue-900 text-white text-xs sm:text-sm font-medium px-4 py-3 rounded-2xl shadow-xl border border-slate-700/80 flex items-center gap-2 transition-all duration-300 transform translate-y-2 opacity-0';
+            toast.innerHTML = `
+                <svg class="w-4 h-4 text-emerald-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                </svg>
+                <span>${message}</span>
+            `;
+            container.appendChild(toast);
+
+            requestAnimationFrame(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            });
+
+            setTimeout(() => {
+                toast.classList.add('translate-y-2', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 2600);
+        }
+
+        // محاسبه پیشرفت کل پروژه (میانگین وزنی / ساده)
+        function calculateTotalProgress() {
+            const totalWeight = sectors.reduce((sum, s) => sum + Number(s.weight), 0);
+            if (totalWeight === 0) return 0;
+            const weightedSum = sectors.reduce((sum, s) => sum + (Number(s.progress) * Number(s.weight)), 0);
+            return weightedSum / totalWeight;
+        }
+
+        // بررسی یکسان بودن اوزان برای نمایش نوع محاسبه در کارت کل
+        function areWeightsEqual() {
+            const first = Number(sectors[0].weight);
+            return sectors.every(s => Number(s.weight) === first);
+        }
+
+        // رندر کارت‌های KPI بخش‌های چهارگانه
+        function renderKpiCards() {
+            const grid = document.getElementById('kpi-cards-grid');
+            const totalWeight = sectors.reduce((sum, s) => sum + Number(s.weight), 0);
+
+            grid.innerHTML = sectors.map(sector => {
+                const status = getStatusInfo(sector.progress);
+                const effectiveWeight = totalWeight > 0 ? Math.round((sector.weight / totalWeight) * 1000) / 10 : 0;
+
+                return `
+                    <div class="bg-white dark:bg-navy-900 rounded-3xl p-5 shadow-md border border-slate-200/80 dark:border-slate-800 hover:shadow-lg transition-all duration-200 flex flex-col justify-between">
+                        <div>
+                            <div class="flex items-start justify-between gap-3">
+                                <div class="flex items-center gap-3">
+                                    <div class="p-3 rounded-2xl ${sector.badgeBg} ${sector.badgeText} shrink-0">
+                                        ${sector.icon}
+                                    </div>
+                                    <div>
+                                        <h3 class="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white">
+                                            ${sector.name}
+                                        </h3>
+                                        <p class="text-xs text-slate-500 dark:text-slate-400 line-clamp-1">
+                                            ${sector.subtitle}
+                                        </p>
+                                    </div>
+                                </div>
+                                <span class="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
+                                    ${formatPercent(sector.progress)}
+                                </span>
+                            </div>
+
+                            <!-- نوار پیشرفت بخش -->
+                            <div class="mt-4">
+                                <div class="flex justify-between text-xs text-slate-500 dark:text-slate-400 mb-1.5">
+                                    <span>پیشرفت فیزیکی</span>
+                                    <span>ضریب وزنی: <strong class="text-slate-700 dark:text-slate-200">${toPersianDigits(effectiveWeight)}٪</strong></span>
+                                </div>
+                                <div class="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-3 overflow-hidden p-0.5">
+                                    <div class="${sector.barClass} h-full rounded-full transition-all duration-300" style="width: ${sector.progress}%"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between gap-2">
+                            <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold border ${status.classes}">
+                                ${status.label}
+                            </span>
+                            <span class="text-xs text-slate-400 dark:text-slate-500">
+                                باقیمانده: ${formatPercent(100 - sector.progress)}
+                            </span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // رندر کنترل‌گرهای بخش شبیه‌ساز زنده (یک بار ساخته می‌شوند و مقادیرشان آپدیت می‌شود)
+        function renderControls() {
+            const grid = document.getElementById('controls-grid');
+            grid.innerHTML = sectors.map((sector, index) => `
+                <div class="bg-slate-50/90 dark:bg-slate-800/50 rounded-2xl p-4 sm:p-5 border border-slate-200/80 dark:border-slate-700/70 space-y-4">
+                    <div class="flex items-center justify-between gap-2">
+                        <div class="flex items-center gap-2.5">
+                            <span class="w-3 h-3 rounded-full shrink-0" style="background-color: ${sector.color}"></span>
+                            <h3 class="font-bold text-slate-900 dark:text-white text-sm sm:text-base">${sector.name}</h3>
+                        </div>
+
+                        <!-- ورودی عددی درصد پیشرفت -->
+                        <div class="flex items-center gap-1.5 bg-white dark:bg-navy-900 border border-slate-300 dark:border-slate-700 rounded-xl px-2.5 py-1">
+                            <label for="num-progress-${index}" class="text-xs text-slate-500 dark:text-slate-400">درصد:</label>
+                            <input id="num-progress-${index}" type="number" min="0" max="100" step="0.5"
+                                   value="${sector.progress}"
+                                   data-index="${index}" data-type="progress"
+                                   class="control-input w-14 text-center font-extrabold text-sm text-slate-900 dark:text-white bg-transparent focus:outline-none">
+                            <span class="text-xs font-bold text-slate-500">٪</span>
+                        </div>
+                    </div>
+
+                    <!-- اسلایدر درصد پیشرفت -->
+                    <div>
+                        <input id="range-progress-${index}" type="range" min="0" max="100" step="1"
+                               value="${sector.progress}"
+                               data-index="${index}" data-type="progress"
+                               style="background: linear-gradient(to left, ${sector.color} ${sector.progress}%, #cbd5e1 ${sector.progress}%);"
+                               class="control-input w-full">
+                        <div class="flex justify-between text-[11px] text-slate-400 mt-1">
+                            <span>۰٪</span>
+                            <span>۵۰٪</span>
+                            <span>۱۰۰٪</span>
+                        </div>
+                    </div>
+
+                    <!-- تنظیم ضریب وزنی بخش -->
+                    <div class="pt-3 border-t border-slate-200/70 dark:border-slate-700/60 flex items-center justify-between gap-3">
+                        <label for="weight-input-${index}" class="text-xs font-medium text-slate-600 dark:text-slate-300">
+                            ضریب وزنی بخش در پروژه (WF):
+                        </label>
+                        <div class="flex items-center gap-1.5 bg-white dark:bg-navy-900 border border-slate-300 dark:border-slate-700 rounded-xl px-2.5 py-1">
+                            <input id="weight-input-${index}" type="number" min="0" max="1000" step="1"
+                                   value="${sector.weight}"
+                                   data-index="${index}" data-type="weight"
+                                   class="control-input w-14 text-center font-bold text-xs sm:text-sm text-blue-700 dark:text-blue-400 bg-transparent focus:outline-none">
+                            <span class="text-xs text-slate-400">واحد</span>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+
+            // اتصال رویدادهای تغییر زنده به تمام ورودی‌ها و اسلایدرها
+            document.querySelectorAll('.control-input').forEach(input => {
+                input.addEventListener('input', handleControlChange);
+            });
+        }
+
+        // مدیریت تغییر مقادیر در پنل شبیه‌ساز
+        function handleControlChange(e) {
+            const index = Number(e.target.dataset.index);
+            const type = e.target.dataset.type;
+            let val = parseFloat(e.target.value);
+
+            if (isNaN(val)) val = 0;
+
+            if (type === 'progress') {
+                val = Math.max(0, Math.min(100, val));
+                sectors[index].progress = val;
+
+                // همگام‌سازی اسلایدر و باکس عددی همان بخش
+                const numEl = document.getElementById(`num-progress-${index}`);
+                const rangeEl = document.getElementById(`range-progress-${index}`);
+                if (document.activeElement !== numEl) numEl.value = val;
+                if (document.activeElement !== rangeEl) rangeEl.value = val;
+
+                // بروزرسانی رنگ پس‌زمینه اسلایدر
+                rangeEl.style.background = `linear-gradient(to left, ${sectors[index].color} ${val}%, #cbd5e1 ${val}%)`;
+            } else if (type === 'weight') {
+                val = Math.max(0, Math.min(1000, val));
+                sectors[index].weight = val;
+            }
+
+            updateDashboard();
+        }
+
+        // بروزرسانی کلیه اجزای داشبورد (کارت کل، کارت‌های بخش‌ها و نمودارها)
+        function updateDashboard() {
+            const totalProgress = calculateTotalProgress();
+            const remainingProgress = Math.max(0, 100 - totalProgress);
+            const totalWeight = sectors.reduce((sum, s) => sum + Number(s.weight), 0);
+
+            // بروزرسانی کارت پیشرفت کل پروژه
+            document.getElementById('total-progress-value').textContent = formatPercent(totalProgress);
+            document.getElementById('total-progress-subtitle').textContent =
+                `معادل ${formatPercent(remainingProgress)} کار باقیمانده تا تکمیل نهایی فاز اجرایی`;
+            document.getElementById('total-progress-bar').style.width = `${totalProgress}%`;
+
+            // بروزرسانی نشان نوع میانگین (ساده یا وزنی)
+            const calcBadge = document.getElementById('calc-mode-badge');
+            if (areWeightsEqual()) {
+                calcBadge.textContent = 'میانگین ساده (اوزان برابر)';
+            } else {
+                calcBadge.textContent = 'میانگین وزنی (بر اساس ضرایب)';
+            }
+
+            // شناسایی پیشتازترین و کندترین بخش
+            const sorted = [...sectors].sort((a, b) => b.progress - a.progress);
+            const topSector = sorted[0];
+            const lowestSector = sorted[sorted.length - 1];
+
+            document.getElementById('top-sector-name').textContent = `${topSector.name} (${formatPercent(topSector.progress)})`;
+            document.getElementById('lowest-sector-name').textContent = `${lowestSector.name} (${formatPercent(lowestSector.progress)})`;
+
+            // بروزرسانی متن داخل و راهنمای نمودار دونات
+            document.getElementById('doughnut-center-text').textContent = formatPercent(totalProgress);
+            document.getElementById('legend-completed').textContent = formatPercent(totalProgress);
+            document.getElementById('legend-remaining').textContent = formatPercent(remainingProgress);
+
+            // بروزرسانی نمایش جمع اوزان
+            document.getElementById('total-weight-display').textContent = toPersianDigits(totalWeight);
+
+            // رندر مجدد کارت‌های KPI
+            renderKpiCards();
+
+            // بروزرسانی نمودارهای Chart.js
+            updateCharts(totalProgress, remainingProgress);
+        }
+
+        // راه‌اندازی اولیه نمودارهای Chart.js
+        function initCharts() {
+            const isDark = document.documentElement.classList.contains('dark');
+            const textColor = isDark ? '#cbd5e1' : '#334155';
+            const gridColor = isDark ? 'rgba(148, 163, 184, 0.12)' : 'rgba(148, 163, 184, 0.2)';
+
+            Chart.defaults.font.family = 'Vazirmatn, sans-serif';
+
+            // ۱. نمودار میله‌ای مقایسه‌ای
+            const barCtx = document.getElementById('barChart').getContext('2d');
+            barChartInstance = new Chart(barCtx, {
+                type: 'bar',
+                data: {
+                    labels: sectors.map(s => s.name),
+                    datasets: [{
+                        label: 'درصد پیشرفت فیزیکی',
+                        data: sectors.map(s => s.progress),
+                        backgroundColor: sectors.map(s => s.color),
+                        borderRadius: 12,
+                        borderSkipped: false,
+                        maxBarThickness: 56
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            rtl: true,
+                            backgroundColor: '#0f172a',
+                            titleFont: { family: 'Vazirmatn', size: 13, weight: 'bold' },
+                            bodyFont: { family: 'Vazirmatn', size: 13 },
+                            padding: 12,
+                            cornerRadius: 12,
+                            callbacks: {
+                                label: function(context) {
+                                    return ` پیشرفت: ${formatPercent(context.parsed.y)}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            grid: {
+                                color: gridColor
+                            },
+                            ticks: {
+                                color: textColor,
+                                stepSize: 20,
+                                callback: function(value) {
+                                    return toPersianDigits(value) + '٪';
+                                }
+                            }
+                        },
+                        x: {
+                            grid: {
+                                display: false
+                            },
+                            ticks: {
+                                color: textColor,
+                                font: {
+                                    weight: 'bold',
+                                    size: 12
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // ۲. نمودار دونات پیشرفت کل در مقابل باقیمانده
+            const doughnutCtx = document.getElementById('doughnutChart').getContext('2d');
+            const initialTotal = calculateTotalProgress();
+            doughnutChartInstance = new Chart(doughnutCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['پیشرفت انجام‌شده', 'کار باقیمانده'],
+                    datasets: [{
+                        data: [initialTotal, 100 - initialTotal],
+                        backgroundColor: [
+                            '#2563eb',
+                            isDark ? '#1e293b' : '#e2e8f0'
+                        ],
+                        borderWidth: 0,
+                        hoverOffset: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '72%',
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            rtl: true,
+                            backgroundColor: '#0f172a',
+                            titleFont: { family: 'Vazirmatn', size: 13 },
+                            bodyFont: { family: 'Vazirmatn', size: 13 },
+                            padding: 12,
+                            cornerRadius: 12,
+                            callbacks: {
+                                label: function(context) {
+                                    return ` ${context.label}: ${formatPercent(context.parsed)}`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // بروزرسانی داده‌ها و رنگ‌های نمودارها هنگام تغییر مقادیر یا تغییر تم
+        function updateCharts(totalProgress, remainingProgress) {
+            const isDark = document.documentElement.classList.contains('dark');
+            const textColor = isDark ? '#cbd5e1' : '#334155';
+            const gridColor = isDark ? 'rgba(148, 163, 184, 0.12)' : 'rgba(148, 163, 184, 0.2)';
+
+            if (barChartInstance) {
+                barChartInstance.data.datasets[0].data = sectors.map(s => s.progress);
+                barChartInstance.options.scales.y.ticks.color = textColor;
+                barChartInstance.options.scales.y.grid.color = gridColor;
+                barChartInstance.options.scales.x.ticks.color = textColor;
+                barChartInstance.update();
+            }
+
+            if (doughnutChartInstance) {
+                doughnutChartInstance.data.datasets[0].data = [totalProgress, remainingProgress];
+                doughnutChartInstance.data.datasets[0].backgroundColor = [
+                    '#2563eb',
+                    isDark ? '#1e293b' : '#e2e8f0'
+                ];
+                doughnutChartInstance.update();
+            }
+        }
+
+        // مدیریت تغییر تم روشن و تیره
+        function setupThemeToggle() {
+            const toggleBtn = document.getElementById('theme-toggle');
+            const sunIcon = document.getElementById('sun-icon');
+            const moonIcon = document.getElementById('moon-icon');
+            const themeLabel = document.getElementById('theme-label');
+
+            toggleBtn.addEventListener('click', () => {
+                const html = document.documentElement;
+                html.classList.toggle('dark');
+                const isDark = html.classList.contains('dark');
+
+                if (isDark) {
+                    sunIcon.classList.remove('hidden');
+                    moonIcon.classList.add('hidden');
+                    themeLabel.textContent = 'حالت روشن';
+                } else {
+                    sunIcon.classList.add('hidden');
+                    moonIcon.classList.remove('hidden');
+                    themeLabel.textContent = 'حالت تیره';
+                }
+
+                const total = calculateTotalProgress();
+                updateCharts(total, 100 - total);
+            });
+        }
+
+        // دکمه‌های بازنشانی و یکسان‌سازی اوزان
+        function setupActionButtons() {
+            document.getElementById('reset-btn').addEventListener('click', () => {
+                sectors = JSON.parse(JSON.stringify(INITIAL_SECTORS));
+                renderControls();
+                updateDashboard();
+                showToast('مقادیر به داده‌های اولیه پروژه دماوند بازنشانی شد.');
+            });
+
+            document.getElementById('equal-weights-btn').addEventListener('click', () => {
+                sectors.forEach((s, idx) => {
+                    s.weight = 25;
+                    const weightInput = document.getElementById(`weight-input-${idx}`);
+                    if (weightInput) weightInput.value = 25;
+                });
+                updateDashboard();
+                showToast('ضرایب وزنی تمامی بخش‌ها به ۲۵ واحد یکسان‌سازی شد.');
+            });
+        }
+
+        // اجرای اولیه پس از بارگذاری کامل صفحه
+        window.addEventListener('DOMContentLoaded', () => {
+            renderControls();
+            initCharts();
+            updateDashboard();
+            setupThemeToggle();
+            setupActionButtons();
+        });
+    </script>
+</body>
+</html>
