@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project Analytics Dashboard</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0b0d11;
+            color: #e5e7eb;
+        }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #14171d;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #2c313c;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #3f4654;
+        }
+
+        /* Card styling matching the dark matte aesthetic */
+        .dashboard-card {
+            background-color: #16181d;
+            border: 1px solid #22252d;
+            border-radius: 8px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Excel-like spinner button styling from the screenshot */
+        .spinner-btn {
+            background-color: #d1d5db;
+            color: #111827;
+            border: 1px solid #9ca3af;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background-color 0.15s;
+            user-select: none;
+        }
+        .spinner-btn:hover {
+            background-color: #ffffff;
+        }
+        .spinner-btn:active {
+            background-color: #9ca3af;
+        }
+
+        /* Tooltip styling */
+        #chart-tooltip {
+            pointer-events: none;
+            transition: opacity 0.15s ease, transform 0.15s ease;
+        }
+
+        /* Glow effects for SVG elements */
+        .line-glow {
+            filter: drop-shadow(0 0 8px rgba(0, 229, 255, 0.5));
+        }
+        .bar-hover {
+            transition: opacity 0.2s, filter 0.2s;
+        }
+        .bar-hover:hover {
+            opacity: 0.85;
+            filter: brightness(1.15);
+            cursor: pointer;
+        }
+        .arc-hover {
+            transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.2s;
+            transform-origin: 140px 140px;
+        }
+        .arc-hover:hover {
+            transform: scale(1.03);
+            filter: brightness(1.15);
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-2 sm:p-4 md:p-6 bg-[#08090c]">
+
+    <!-- Main Dashboard Container -->
+    <div class="w-full max-w-[1280px] bg-[#000000] p-3 sm:p-5 rounded-2xl border border-[#1f222a] shadow-2xl relative">
+        
+        <!-- Subtle Top Project Header (Interactive Controls) -->
+        <div class="flex flex-wrap items-center justify-between mb-4 px-1 gap-2">
+            <div class="flex items-center gap-3">
+                <div class="w-2.5 h-2.5 rounded-full bg-[#00e5ff] animate-pulse"></div>
+                <span class="text-xs sm:text-sm font-medium text-gray-400 tracking-wide uppercase">
+                    Project Alpha • Retail & Inventory Analytics
+                </span>
+            </div>
+            <div class="flex items-center gap-2 text-xs text-gray-500">
+                <span>Click calendar days or spinners to update metrics</span>
+                <button id="reset-btn" class="px-2.5 py-1 bg-[#1b1e26] hover:bg-[#262a35] text-gray-300 rounded border border-[#2d323e] transition text-xs">
+                    Reset Default
+                </button>
+            </div>
+        </div>
+
+        <!-- 12-Column Responsive Grid matching the exact proportions of the image -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+            
+            <!-- TOP LEFT: Income vs Expenses Bar Chart (8 Columns on Desktop) -->
+            <div class="lg:col-span-8 dashboard-card p-4 sm:p-6 flex flex-col justify-between relative">
+                <!-- Legend Header -->
+                <div class="flex items-center justify-center gap-6 mb-2">
+                    <div class="flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-[1px] bg-gradient-to-b from-[#00d2ff] to-[#1e40af]"></span>
+                        <span class="text-xs sm:text-sm text-gray-200 font-normal">Income</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-[1px] bg-gradient-to-b from-[#f48fb1] to-[#8e24aa]"></span>
+                        <span class="text-xs sm:text-sm text-gray-200 font-normal">Expenses</span>
+                    </div>
+                </div>
+
+                <!-- Bar Chart SVG Container -->
+                <div class="w-full h-[250px] sm:h-[280px] relative">
+                    <svg id="bar-chart-svg" viewBox="0 0 700 280" class="w-full h-full overflow-visible">
+                        <defs>
+                            <!-- Income Gradient: Cyan top to Deep Royal Blue bottom -->
+                            <linearGradient id="incomeGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                                <stop offset="0%" stop-color="#00d2ff" />
+                                <stop offset="55%" stop-color="#0077ff" />
+                                <stop offset="100%" stop-color="#1d35b8" />
+                            </linearGradient>
+                            <!-- Expenses Gradient: Coral/Salmon top to Vivid Purple bottom -->
+                            <linearGradient id="expenseGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                                <stop offset="0%" stop-color="#ff8a75" />
+                                <stop offset="50%" stop-color="#d8438d" />
+                                <stop offset="100%" stop-color="#7b1fa2" />
+                            </linearGradient>
+                        </defs>
+                        
+                        <!-- Gridlines & Y-Axis Labels will be injected by JS -->
+                        <g id="bar-grid"></g>
+                        <!-- Bars & X-Axis Labels will be injected by JS -->
+                        <g id="bar-content"></g>
+                    </svg>
+                </div>
+            </div>
+
+            <!-- TOP RIGHT: Interactive Calendar Widget (4 Columns on Desktop) -->
+            <div class="lg:col-span-4 dashboard-card p-4 sm:p-5 flex flex-col justify-between select-none">
+                <!-- Top Excel-style Controls Bar -->
+                <div class="flex items-center justify-between gap-2 mb-4">
+                    <!-- Left Selector Group (Day/Range + Window Size Spinner) -->
+                    <div class="flex items-center gap-3">
+                        <!-- White Dropdown Box ("14") -->
+                        <div class="relative">
+                            <select id="start-day-select" class="appearance-none bg-white text-black font-semibold text-xs sm:text-sm pl-2.5 pr-6 py-1 rounded-[2px] border border-gray-400 cursor-pointer focus:outline-none">
+                                <!-- Options populated by JS -->
+                            </select>
+                            <div class="pointer-events-none absolute inset-y-0 right-1 flex items-center text-black text-[10px]">
+                                ▼
+                            </div>
+                        </div>
+
+                        <!-- Span Number + Up/Down Spinner ("5") -->
+                        <div class="flex items-center gap-2">
+                            <span id="range-span-display" class="text-white font-semibold text-sm sm:text-base w-4 text-center">5</span>
+                            <div class="flex flex-col w-5 h-6 rounded-[2px] overflow-hidden border border-gray-500">
+                                <button id="span-up" class="spinner-btn h-1/2 text-[9px] leading-none" title="Increase days">▲</button>
+                                <button id="span-down" class="spinner-btn h-1/2 text-[9px] leading-none" title="Decrease days">▼</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Month Selector + Up/Down Spinner ("July") -->
+                    <div class="flex items-center gap-2">
+                        <span id="month-display" class="text-white font-medium text-sm sm:text-base min-w-[65px] text-right">July</span>
+                        <div class="flex flex-col w-5 h-6 rounded-[2px] overflow-hidden border border-gray-500">
+                            <button id="month-prev" class="spinner-btn h-1/2 text-[9px] leading-none" title="Previous Month">▲</button>
+                            <button id="month-next" class="spinner-btn h-1/2 text-[9px] leading-none" title="Next Month">▼</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Calendar Grid -->
+                <div class="w-full">
+                    <!-- Weekday Headers (Cyrillic style as in screenshot: П В С Ч П С В with tooltip for Mon-Sun) -->
+                    <div class="grid grid-cols-7 text-center text-xs font-semibold text-gray-300 mb-3 tracking-wider">
+                        <div title="Monday">П</div>
+                        <div title="Tuesday">В</div>
+                        <div title="Wednesday">С</div>
+                        <div title="Thursday">Ч</div>
+                        <div title="Friday">П</div>
+                        <div title="Saturday">С</div>
+                        <div title="Sunday">В</div>
+                    </div>
+
+                    <!-- Days Matrix -->
+                    <div id="calendar-days-grid" class="grid grid-cols-7 gap-y-1.5 text-center text-xs sm:text-sm font-medium">
+                        <!-- Days injected dynamically via JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- BOTTOM LEFT: Leftover Multi-Ring Donut Chart (4.5 / 5 Columns) -->
+            <div class="lg:col-span-5 dashboard-card p-4 sm:p-5 flex flex-col justify-between relative">
+                <h2 class="text-base sm:text-lg font-normal text-gray-200 mb-1">Leftover</h2>
+                
+                <div class="flex items-center justify-between w-full h-[240px] sm:h-[260px]">
+                    <!-- SVG Concentric Segmented Donut Chart -->
+                    <div class="w-[72%] h-full flex items-center justify-center relative">
+                        <svg id="donut-chart-svg" viewBox="0 0 280 280" class="w-full h-full max-w-[260px] overflow-visible">
+                            <!-- Arcs and Callout Badges injected via JS -->
+                            <g id="donut-rings"></g>
+                            
+                            <!-- Center Text -->
+                            <text x="140" y="134" text-anchor="middle" fill="#e5e7eb" font-size="13.5" font-weight="400">Shops/Stock</text>
+                            <text id="shops-stock-ratio" x="140" y="155" text-anchor="middle" fill="#ffffff" font-size="14.5" font-weight="500">831/413</text>
+                        </svg>
+                    </div>
+
+                    <!-- Right Legend -->
+                    <div class="w-[28%] flex flex-col justify-center gap-3.5 pl-1">
+                        <div class="flex items-center gap-2 cursor-pointer group" onclick="highlightShop(0)">
+                            <span class="w-2.5 h-2.5 rounded-[1px] bg-[#14d4d4] group-hover:scale-125 transition"></span>
+                            <span class="text-xs sm:text-sm text-gray-300 group-hover:text-white">Shop 1</span>
+                        </div>
+                        <div class="flex items-center gap-2 cursor-pointer group" onclick="highlightShop(1)">
+                            <span class="w-2.5 h-2.5 rounded-[1px] bg-[#e93b81] group-hover:scale-125 transition"></span>
+                            <span class="text-xs sm:text-sm text-gray-300 group-hover:text-white">Shop 2</span>
+                        </div>
+                        <div class="flex items-center gap-2 cursor-pointer group" onclick="highlightShop(2)">
+                            <span class="w-2.5 h-2.5 rounded-[1px] bg-[#9c27b0] group-hover:scale-125 transition"></span>
+                            <span class="text-xs sm:text-sm text-gray-300 group-hover:text-white">Shop 3</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- BOTTOM RIGHT: Sales by Day of Week Smooth Line Chart (7 Columns) -->
+            <div class="lg:col-span-7 dashboard-card p-4 sm:p-5 flex flex-col justify-between relative">
+                <h2 class="text-base sm:text-lg font-normal text-gray-200 mb-1">Sales by day of week</h2>
+
+                <div class="w-full h-[240px] sm:h-[260px] relative">
+                    <svg id="line-chart-svg" viewBox="0 0 650 260" class="w-full h-full overflow-visible">
+                        <defs>
+                            <linearGradient id="lineAreaGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                                <stop offset="0%" stop-color="#00e5ff" stop-opacity="0.22" />
+                                <stop offset="100%" stop-color="#00e5ff" stop-opacity="0.0" />
+                            </linearGradient>
+                        </defs>
+                        <!-- Gridlines & Y-Axis -->
+                        <g id="line-grid"></g>
+                        <!-- Smooth Spline & Markers -->
+                        <g id="line-content"></g>
+                    </svg>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Floating Interactive Tooltip -->
+    <div id="chart-tooltip" class="fixed z-50 opacity-0 bg-[#111318]/95 border border-[#2f3542] text-white px-3 py-2 rounded-md shadow-xl text-xs backdrop-blur-sm">
+        <div id="tooltip-title" class="font-semibold text-gray-300 mb-1"></div>
+        <div id="tooltip-body" class="space-y-0.5"></div>
+    </div>
+
+    <script>
+        /**
+         * Mock Project Dataset across multiple months so the dashboard is 100% interactive
+         * Default state matches the exact numbers & visual structure of the uploaded screenshot.
+         */
+        const monthsData = [
+            {
+                name: "June",
+                daysInMonth: 30,
+                startOffset: 1, // Starts Tuesday (index 1 in Mon-Sun)
+                weekends: [5, 6, 12, 13, 19, 20, 26, 27],
+                shopsStock: "790/385",
+                leftover: [38, 22, 14], // Shop 1, Shop 2, Shop 3 %
+                dailyFinancials: generateMonthFinancials(30, 1.05),
+                weeklySales: [1200, 1800, 6400, 5900, 9800, 4200, 7500]
+            },
+            {
+                name: "July", // Default matches uploaded image
+                daysInMonth: 31,
+                startOffset: 3, // Starts Thursday (1st is at column 4, matching image!)
+                weekends: [3, 4, 10, 11, 17, 18, 24, 25, 31],
+                shopsStock: "831/413",
+                leftover: [33, 17, 17], // Exact percentages from image: 33%, 17%, 17%
+                dailyFinancials: {
+                    // Exact values matching image for days 14..18
+                    12: { income: 6200, expense: 5900 },
+                    13: { income: 7100, expense: 6800 },
+                    14: { income: 7500, expense: 7850 },
+                    15: { income: 5500, expense: 5900 },
+                    16: { income: 10800, expense: 9350 },
+                    17: { income: 3500, expense: 3400 },
+                    18: { income: 8100, expense: 7350 },
+                    19: { income: 6900, expense: 6400 },
+                    20: { income: 8400, expense: 7200 },
+                    21: { income: 9200, expense: 8100 }
+                },
+                // Exact weekly curve matching screenshot: Mon: 0, Tue: 0, Wed: 7500, Thu: 5600, Fri: 10800, Sat: 3600, Sun: 8150
+                weeklySales: [0, 0, 7500, 5600, 10800, 3600, 8150]
+            },
+            {
+                name: "August",
+                daysInMonth: 31,
+                startOffset: 6, // Starts Sunday
+                weekends: [1, 7, 8, 14, 15, 21, 22, 28, 29],
+                shopsStock: "912/460",
+                leftover: [41, 19, 12],
+                dailyFinancials: generateMonthFinancials(31, 1.15),
+                weeklySales: [900, 1400, 8200, 6900, 11400, 5100, 8900]
+            }
+        ];
+
+        // Fill remaining days for July and other months realistically
+        function generateMonthFinancials(days, multiplier) {
+            const obj = {};
+            for (let d = 1; d <= days; d++) {
+                const baseInc = 4200 + ((d * 1739) % 7200);
+                const baseExp = 3800 + ((d * 1397) % 6500);
+                obj[d] = {
+                    income: Math.round(baseInc * multiplier),
+                    expense: Math.round(baseExp * multiplier)
+                };
+            }
+            return obj;
+        }
+        // Populate missing days in July while preserving exact 14-18 values
+        const julyDefaults = { ...monthsData[1].dailyFinancials };
+        monthsData[1].dailyFinancials = {
+            ...generateMonthFinancials(31, 1),
+            ...julyDefaults
+        };
+
+        // Application State (Initialized strictly to match the screenshot)
+        let state = {
+            monthIndex: 1,       // July
+            selectedDay: 13,     // Green Excel-selected cell on 13
+            rangeStart: 14,      // Blue highlighted range starts on 14
+            rangeSpan: 5         // 5 days highlighted (14, 15, 16, 17, 18)
+        };
+
+        // Tooltip Helper
+        const tooltip = document.getElementById('chart-tooltip');
+        const tooltipTitle = document.getElementById('tooltip-title');
+        const tooltipBody = document.getElementById('tooltip-body');
+
+        function showTooltip(e, title, lines) {
+            tooltipTitle.textContent = title;
+            tooltipBody.innerHTML = lines.map(l => `<div>${l}</div>`).join('');
+            tooltip.style.opacity = '1';
+            moveTooltip(e);
+        }
+
+        function moveTooltip(e) {
+            const x = e.clientX + 14;
+            const y = e.clientY - 14;
+            tooltip.style.left = `${Math.min(x, window.innerWidth - 180)}px`;
+            tooltip.style.top = `${Math.max(y, 10)}px`;
+        }
+
+        function hideTooltip() {
+            tooltip.style.opacity = '0';
+        }
+
+        /**
+         * 1. RENDER TOP-LEFT BAR CHART (Income vs Expenses)
+         */
+        function renderBarChart() {
+            const gridG = document.getElementById('bar-grid');
+            const contentG = document.getElementById('bar-content');
+            gridG.innerHTML = '';
+            contentG.innerHTML = '';
+
+            const month = monthsData[state.monthIndex];
+            const padLeft = 65;
+            const padRight = 25;
+            const padTop = 20;
+            const padBottom = 35;
+            const width = 700 - padLeft - padRight;
+            const height = 280 - padTop - padBottom;
+            const maxVal = 15000;
+
+            // Y-Axis Gridlines ($15,000, $10,000, $5,000, $-)
+            const yTicks = [15000, 10000, 5000, 0];
+            yTicks.forEach(val => {
+                const y = padTop + height - (val / maxVal) * height;
+                
+                // Grid line
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('x1', padLeft);
+                line.setAttribute('x2', padLeft + width);
+                line.setAttribute('y1', y);
+                line.setAttribute('y2', y);
+                line.setAttribute('stroke', val === 0 ? '#6b7280' : '#262932');
+                line.setAttribute('stroke-width', val === 0 ? '1.2' : '1');
+                gridG.appendChild(line);
+
+                // Label
+                const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                text.setAttribute('x', padLeft - 12);
+                text.setAttribute('y', y + 4);
+                text.setAttribute('text-anchor', 'end');
+                text.setAttribute('fill', '#9ca3af');
+                text.setAttribute('font-size', '11');
+                text.textContent = val === 0 ? '$-' : `$${val.toLocaleString()}`;
+                gridG.appendChild(text);
+            });
+
+            // Active Days Slice
+            const days = [];
+            for (let i = 0; i < state.rangeSpan; i++) {
+                const d = state.rangeStart + i;
+                if (d <= month.daysInMonth) {
+                    days.push(d);
+                }
+            }
+
+            const slotWidth = width / days.length;
+            const barWidth = Math.min(26, slotWidth * 0.24);
+            const barGap = 8;
+
+            days.forEach((day, idx) => {
+                const data = month.dailyFinancials[day] || { income: 5000, expense: 4500 };
+                const centerX = padLeft + slotWidth * idx + slotWidth / 2;
+
+                // Income Bar
+                const incHeight = (data.income / maxVal) * height;
+                const incY = padTop + height - incHeight;
+                const incRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                incRect.setAttribute('x', centerX - barWidth - barGap / 2);
+                incRect.setAttribute('y', incY);
+                incRect.setAttribute('width', barWidth);
+                incRect.setAttribute('height', Math.max(incHeight, 2));
+                incRect.setAttribute('fill', 'url(#incomeGrad)');
+                incRect.setAttribute('rx', '1');
+                incRect.classList.add('bar-hover');
+
+                incRect.addEventListener('mouseenter', (e) => {
+                    showTooltip(e, `${month.name} ${day}`, [
+                        `<span class="text-[#00d2ff]">● Income:</span> $${data.income.toLocaleString()}`,
+                        `<span class="text-[#ff8a75]">● Expenses:</span> $${data.expense.toLocaleString()}`
+                    ]);
+                });
+                incRect.addEventListener('mousemove', moveTooltip);
+                incRect.addEventListener('mouseleave', hideTooltip);
+
+                // Expense Bar
+                const expHeight = (data.expense / maxVal) * height;
+                const expY = padTop + height - expHeight;
+                const expRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                expRect.setAttribute('x', centerX + barGap / 2);
+                expRect.setAttribute('y', expY);
+                expRect.setAttribute('width', barWidth);
+                expRect.setAttribute('height', Math.max(expHeight, 2));
+                expRect.setAttribute('fill', 'url(#expenseGrad)');
+                expRect.setAttribute('rx', '1');
+                expRect.classList.add('bar-hover');
+
+                expRect.addEventListener('mouseenter', (e) => {
+                    showTooltip(e, `${month.name} ${day}`, [
+                        `<span class="text-[#00d2ff]">● Income:</span> $${data.income.toLocaleString()}`,
+                        `<span class="text-[#ff8a75]">● Expenses:</span> $${data.expense.toLocaleString()}`
+                    ]);
+                });
+                expRect.addEventListener('mousemove', moveTooltip);
+                expRect.addEventListener('mouseleave', hideTooltip);
+
+                // X-Axis Day Number
+                const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                label.setAttribute('x', centerX);
+                label.setAttribute('y', padTop + height + 20);
+                label.setAttribute('text-anchor', 'middle');
+                label.setAttribute('fill', '#d1d5db');
+                label.setAttribute('font-size', '11.5');
+                label.textContent = day;
+
+                contentG.appendChild(incRect);
+                contentG.appendChild(expRect);
+                contentG.appendChild(label);
+            });
+        }
+
+        /**
+         * 2. RENDER TOP-RIGHT INTERACTIVE CALENDAR
+         */
+        function renderCalendar() {
+            const month = monthsData[state.monthIndex];
+            document.getElementById('month-display').textContent = month.name;
+            document.getElementById('range-span-display').textContent = state.rangeSpan;
+
+            // Populate Start Day Dropdown
+            const select = document.getElementById('start-day-select');
+            select.innerHTML = '';
+            for (let d = 1; d <= month.daysInMonth; d++) {
+                const opt = document.createElement('option');
+                opt.value = d;
+                opt.textContent = d;
+                if (d === state.rangeStart) opt.selected = true;
+                select.appendChild(opt);
+            }
+
+            const grid = document.getElementById('calendar-days-grid');
+            grid.innerHTML = '';
+
+            // Empty cells before day 1
+            for (let i = 0; i < month.startOffset; i++) {
+                const empty = document.createElement('div');
+                empty.className = 'h-8';
+                grid.appendChild(empty);
+            }
+
+            const rangeEnd = state.rangeStart + state.rangeSpan - 1;
+
+            for (let d = 1; d <= month.daysInMonth; d++) {
+                const cell = document.createElement('div');
+                const isWeekend = month.weekends.includes(d);
+                const isSelected = d === state.selectedDay;
+                const inBlueRange = d >= state.rangeStart && d <= rangeEnd;
+
+                let baseClasses = 'h-8 flex items-center justify-center cursor-pointer transition relative text-xs sm:text-sm ';
+
+                if (inBlueRange) {
+                    // Vivid Azure Blue highlight strip matching screenshot (#0078d7)
+                    baseClasses += 'bg-[#0078d7] text-white font-semibold ';
+                    if (d === state.rangeStart) baseClasses += 'rounded-l-[2px] ';
+                    if (d === rangeEnd || d === month.daysInMonth) baseClasses += 'rounded-r-[2px] ';
+                } else {
+                    baseClasses += 'hover:bg-[#252932] rounded-[2px] ';
+                    if (isWeekend) {
+                        baseClasses += 'text-[#b8326a] '; // Magenta/crimson weekend color from screenshot
+                    } else {
+                        baseClasses += 'text-gray-300 ';
+                    }
+                }
+
+                // Active Excel-style green selection box around the selected day (e.g., 13)
+                if (isSelected) {
+                    baseClasses += 'ring-2 ring-[#21a366] ring-inset bg-[#1c2026] text-white font-bold z-10 ';
+                }
+
+                cell.className = baseClasses;
+                cell.textContent = d;
+
+                // Small Excel drag handle square on bottom-right of selected cell
+                if (isSelected) {
+                    const handle = document.createElement('span');
+                    handle.className = 'w-1.5 h-1.5 bg-[#21a366] absolute -bottom-0.5 -right-0.5 border border-black';
+                    cell.appendChild(handle);
+                }
+
+                // Click a day: sets green focus to that day, and starts blue range from day + 1
+                cell.addEventListener('click', () => {
+                    state.selectedDay = d;
+                    state.rangeStart = d < month.daysInMonth ? d + 1 : d;
+                    if (state.rangeStart + state.rangeSpan - 1 > month.daysInMonth) {
+                        state.rangeStart = Math.max(1, month.daysInMonth - state.rangeSpan + 1);
+                    }
+                    updateDashboard();
+                });
+
+                grid.appendChild(cell);
+            }
+        }
+
+        /**
+         * 3. RENDER BOTTOM-LEFT CONCENTRIC MULTI-RING DONUT CHART ("Leftover")
+         */
+        function polarToCartesian(cx, cy, r, angleInDegrees) {
+            const angleInRadians = (angleInDegrees - 90) * Math.PI / 180.0;
+            return {
+                x: cx + (r * Math.cos(angleInRadians)),
+                y: cy + (r * Math.sin(angleInRadians))
+            };
+        }
+
+        function createDonutSegment(cx, cy, rInner, rOuter, startAngle, endAngle) {
+            const startOuter = polarToCartesian(cx, cy, rOuter, endAngle);
+            const endOuter = polarToCartesian(cx, cy, rOuter, startAngle);
+            const startInner = polarToCartesian(cx, cy, rInner, endAngle);
+            const endInner = polarToCartesian(cx, cy, rInner, startAngle);
+            const largeArcFlag = endAngle - startAngle <= 180 ? "0" : "1";
+
+            return [
+                "M", startOuter.x, startOuter.y,
+                "A", rOuter, rOuter, 0, largeArcFlag, 0, endOuter.x, endOuter.y,
+                "L", endInner.x, endInner.y,
+                "A", rInner, rInner, 0, largeArcFlag, 1, startInner.x, startInner.y,
+                "Z"
+            ].join(" ");
+        }
+
+        function renderDonutChart() {
+            const month = monthsData[state.monthIndex];
+            document.getElementById('shops-stock-ratio').textContent = month.shopsStock;
+
+            const container = document.getElementById('donut-rings');
+            container.innerHTML = '';
+
+            const cx = 140;
+            const cy = 140;
+
+            // Background dark grey ring
+            const bgRing = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            bgRing.setAttribute('d', createDonutSegment(cx, cy, 62, 76, 0, 359.9));
+            bgRing.setAttribute('fill', '#2a2d35');
+            container.appendChild(bgRing);
+
+            const [p1, p2, p3] = month.leftover;
+            const a1 = (p1 / 100) * 360;
+            const a2 = a1 + (p2 / 100) * 360;
+            const a3 = a2 + (p3 / 100) * 360;
+
+            const shops = [
+                {
+                    name: 'Shop 1',
+                    pct: p1,
+                    start: 0,
+                    end: a1,
+                    // 4 layered concentric sub-bands matching the exact visual style of the screenshot
+                    rings: [
+                        { rIn: 62, rOut: 69, color: '#0d9ea8' },
+                        { rIn: 70, rOut: 77, color: '#11b5c0' },
+                        { rIn: 78, rOut: 85, color: '#15cbd6' },
+                        { rIn: 86, rOut: 93, color: '#1ce0ec' }
+                    ],
+                    labelColor: '#5eead4',
+                    calloutAngle: a1 * 0.45,
+                    calloutR: 93,
+                    boxOffset: { x: 22, y: -14 }
+                },
+                {
+                    name: 'Shop 2',
+                    pct: p2,
+                    start: a1,
+                    end: a2,
+                    // 3 layered concentric sub-bands
+                    rings: [
+                        { rIn: 62, rOut: 68, color: '#be2663' },
+                        { rIn: 69, rOut: 75, color: '#d83174' },
+                        { rIn: 76, rOut: 82, color: '#f03e86' }
+                    ],
+                    labelColor: '#fb7185',
+                    calloutAngle: a1 + (a2 - a1) * 0.5,
+                    calloutR: 82,
+                    boxOffset: { x: 18, y: 18 }
+                },
+                {
+                    name: 'Shop 3',
+                    pct: p3,
+                    start: a2,
+                    end: a3,
+                    // 2 layered concentric sub-bands
+                    rings: [
+                        { rIn: 62, rOut: 68, color: '#7e1fa2' },
+                        { rIn: 69, rOut: 75, color: '#9c27b0' }
+                    ],
+                    labelColor: '#c084fc',
+                    calloutAngle: a2 + (a3 - a2) * 0.55,
+                    calloutR: 75,
+                    boxOffset: { x: -24, y: 18 }
+                }
+            ];
+
+            shops.forEach((shop, idx) => {
+                const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                group.classList.add('arc-hover');
+                group.setAttribute('id', `shop-arc-${idx}`);
+
+                shop.rings.forEach(ring => {
+                    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    path.setAttribute('d', createDonutSegment(cx, cy, ring.rIn, ring.rOut, shop.start, shop.end));
+                    path.setAttribute('fill', ring.color);
+                    group.appendChild(path);
+                });
+
+                group.addEventListener('mouseenter', (e) => {
+                    showTooltip(e, shop.name, [
+                        `Leftover Share: <strong class="text-white">${shop.pct}%</strong>`,
+                        `Status: Active Inventory`
+                    ]);
+                });
+                group.addEventListener('mousemove', moveTooltip);
+                group.addEventListener('mouseleave', hideTooltip);
+
+                container.appendChild(group);
+
+                // Callout Pointer Line & Dark Badge Box (33%, 17%, 17%)
+                const pStart = polarToCartesian(cx, cy, shop.calloutR, shop.calloutAngle);
+                const pElbow = {
+                    x: pStart.x + shop.boxOffset.x,
+                    y: pStart.y + shop.boxOffset.y
+                };
+                const isLeft = shop.boxOffset.x < 0;
+                const pEnd = {
+                    x: pElbow.x + (isLeft ? -8 : 8),
+                    y: pElbow.y
+                };
+
+                const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+                poly.setAttribute('points', `${pStart.x},${pStart.y} ${pElbow.x},${pElbow.y} ${pEnd.x},${pEnd.y}`);
+                poly.setAttribute('fill', 'none');
+                poly.setAttribute('stroke', '#9ca3af');
+                poly.setAttribute('stroke-width', '1');
+                container.appendChild(poly);
+
+                // Badge Rect
+                const boxW = 34;
+                const boxH = 18;
+                const boxX = isLeft ? pEnd.x - boxW : pEnd.x;
+                const boxY = pEnd.y - boxH / 2;
+
+                const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                rect.setAttribute('x', boxX);
+                rect.setAttribute('y', boxY);
+                rect.setAttribute('width', boxW);
+                rect.setAttribute('height', boxH);
+                rect.setAttribute('rx', '2');
+                rect.setAttribute('fill', '#090a0d');
+                rect.setAttribute('stroke', '#2e323d');
+                rect.setAttribute('stroke-width', '1');
+                container.appendChild(rect);
+
+                // Percentage Text
+                const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                txt.setAttribute('x', boxX + boxW / 2);
+                txt.setAttribute('y', boxY + 12.5);
+                txt.setAttribute('text-anchor', 'middle');
+                txt.setAttribute('fill', shop.labelColor);
+                txt.setAttribute('font-size', '10.5');
+                txt.setAttribute('font-weight', '600');
+                txt.textContent = `${shop.pct}%`;
+                container.appendChild(txt);
+            });
+        }
+
+        function highlightShop(idx) {
+            const el = document.getElementById(`shop-arc-${idx}`);
+            if (!el) return;
+            el.style.transform = 'scale(1.06)';
+            el.style.filter = 'brightness(1.25)';
+            setTimeout(() => {
+                el.style.transform = '';
+                el.style.filter = '';
+            }, 450);
+        }
+
+        /**
+         * 4. RENDER BOTTOM-RIGHT SMOOTH SPLINE LINE CHART ("Sales by day of week")
+         */
+        function renderLineChart() {
+            const gridG = document.getElementById('line-grid');
+            const contentG = document.getElementById('line-content');
+            gridG.innerHTML = '';
+            contentG.innerHTML = '';
+
+            const month = monthsData[state.monthIndex];
+            // Adjust weekly sales slightly when rangeStart changes so users see dynamic responsiveness
+            const shiftFactor = state.monthIndex === 1 && state.rangeStart === 14 ? 1 : (0.9 + (state.rangeStart % 5) * 0.05);
+            const sales = month.weeklySales.map(v => Math.round(v * shiftFactor));
+
+            const padLeft = 65;
+            const padRight = 25;
+            const padTop = 18;
+            const padBottom = 32;
+            const width = 650 - padLeft - padRight;
+            const height = 260 - padTop - padBottom;
+
+            const minVal = -2000;
+            const maxVal = 12000;
+            const totalRange = maxVal - minVal;
+
+            const getY = (val) => padTop + height - ((val - minVal) / totalRange) * height;
+
+            // Y-Axis Ticks ($12,000 down to $-2,000)
+            const yTicks = [12000, 10000, 8000, 6000, 4000, 2000, 0, -2000];
+            yTicks.forEach(val => {
+                const y = getY(val);
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('x1', padLeft);
+                line.setAttribute('x2', padLeft + width);
+                line.setAttribute('y1', y);
+                line.setAttribute('y2', y);
+                line.setAttribute('stroke', val === 0 ? '#6b7280' : '#22252e');
+                line.setAttribute('stroke-width', val === 0 ? '1.2' : '0.8');
+                gridG.appendChild(line);
+
+                const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                text.setAttribute('x', padLeft - 10);
+                text.setAttribute('y', y + 3.5);
+                text.setAttribute('text-anchor', 'end');
+                text.setAttribute('fill', '#9ca3af');
+                text.setAttribute('font-size', '10.5');
+                if (val === 0) text.textContent = '$-';
+                else if (val < 0) text.textContent = `$-${Math.abs(val).toLocaleString()}`;
+                else text.textContent = `$${val.toLocaleString()}`;
+                gridG.appendChild(text);
+            });
+
+            const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+            const slotWidth = width / daysOfWeek.length;
+
+            const points = sales.map((val, idx) => ({
+                x: padLeft + slotWidth * idx + slotWidth / 2,
+                y: getY(val),
+                val: val,
+                day: daysOfWeek[idx]
+            }));
+
+            // Generate smooth Catmull-Rom / Bezier curve matching the image's fluid cyan wave
+            let pathD = `M ${points[0].x} ${points[0].y}`;
+            for (let i = 0; i < points.length - 1; i++) {
+                const p0 = points[i === 0 ? i : i - 1];
+                const p1 = points[i];
+                const p2 = points[i + 1];
+                const p3 = points[i + 2 < points.length ? i + 2 : i + 1];
+
+                const cp1x = p1.x + (p2.x - p0.x) / 6;
+                const cp1y = p1.y + (p2.y - p0.y) / 6;
+                const cp2x = p2.x - (p3.x - p1.x) / 6;
+                const cp2y = p2.y - (p3.y - p1.y) / 6;
+
+                pathD += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p2.x} ${p2.y}`;
+            }
+
+            // Subtle Area Gradient Fill under curve
+            const areaD = `${pathD} L ${points[points.length - 1].x} ${getY(0)} L ${points[0].x} ${getY(0)} Z`;
+            const areaPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            areaPath.setAttribute('d', areaD);
+            areaPath.setAttribute('fill', 'url(#lineAreaGrad)');
+            contentG.appendChild(areaPath);
+
+            // Glowing Cyan Line
+            const linePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            linePath.setAttribute('d', pathD);
+            linePath.setAttribute('fill', 'none');
+            linePath.setAttribute('stroke', '#00e5ff');
+            linePath.setAttribute('stroke-width', '2.8');
+            linePath.setAttribute('stroke-linecap', 'round');
+            linePath.classList.add('line-glow');
+            contentG.appendChild(linePath);
+
+            // Data Points & X-Axis Labels
+            points.forEach(pt => {
+                // X-axis label
+                const lbl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                lbl.setAttribute('x', pt.x);
+                lbl.setAttribute('y', padTop + height + 18);
+                lbl.setAttribute('text-anchor', 'middle');
+                lbl.setAttribute('fill', '#d1d5db');
+                lbl.setAttribute('font-size', '11');
+                lbl.textContent = pt.day;
+                contentG.appendChild(lbl);
+
+                // Interactive Marker Circle
+                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                circle.setAttribute('cx', pt.x);
+                circle.setAttribute('cy', pt.y);
+                circle.setAttribute('r', '4.5');
+                circle.setAttribute('fill', '#00e5ff');
+                circle.setAttribute('stroke', '#16181d');
+                circle.setAttribute('stroke-width', '1.5');
+                circle.style.cursor = 'pointer';
+                circle.style.transition = 'r 0.15s ease';
+
+                circle.addEventListener('mouseenter', (e) => {
+                    circle.setAttribute('r', '7');
+                    showTooltip(e, pt.day, [
+                        `Weekly Sales: <strong class="text-[#00e5ff]">$${pt.val.toLocaleString()}</strong>`
+                    ]);
+                });
+                circle.addEventListener('mousemove', moveTooltip);
+                circle.addEventListener('mouseleave', () => {
+                    circle.setAttribute('r', '4.5');
+                    hideTooltip();
+                });
+
+                contentG.appendChild(circle);
+            });
+        }
+
+        /**
+         * Master Update Function & Event Listeners
+         */
+        function updateDashboard() {
+            renderBarChart();
+            renderCalendar();
+            renderDonutChart();
+            renderLineChart();
+        }
+
+        // Control Listeners
+        document.getElementById('start-day-select').addEventListener('change', (e) => {
+            const val = parseInt(e.target.value, 10);
+            state.rangeStart = val;
+            state.selectedDay = val > 1 ? val - 1 : 1;
+            updateDashboard();
+        });
+
+        document.getElementById('span-up').addEventListener('click', () => {
+            const maxDays = monthsData[state.monthIndex].daysInMonth;
+            if (state.rangeSpan < 10) {
+                state.rangeSpan++;
+                if (state.rangeStart + state.rangeSpan - 1 > maxDays) {
+                    state.rangeStart = Math.max(1, maxDays - state.rangeSpan + 1);
+                }
+                updateDashboard();
+            }
+        });
+
+        document.getElementById('span-down').addEventListener('click', () => {
+            if (state.rangeSpan > 2) {
+                state.rangeSpan--;
+                updateDashboard();
+            }
+        });
+
+        document.getElementById('month-prev').addEventListener('click', () => {
+            state.monthIndex = (state.monthIndex - 1 + monthsData.length) % monthsData.length;
+            updateDashboard();
+        });
+
+        document.getElementById('month-next').addEventListener('click', () => {
+            state.monthIndex = (state.monthIndex + 1) % monthsData.length;
+            updateDashboard();
+        });
+
+        document.getElementById('reset-btn').addEventListener('click', () => {
+            state = {
+                monthIndex: 1,
+                selectedDay: 13,
+                rangeStart: 14,
+                rangeSpan: 5
+            };
+            updateDashboard();
+        });
+
+        // Initial Render on Window Load
+        window.addEventListener('load', updateDashboard);
+    </script>
+</body>
+</html>
